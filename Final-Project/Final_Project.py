@@ -8,6 +8,7 @@ from sklearn.cross_validation import KFold
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.decomposition import PCA
+from sklearn.manifold import LocallyLinearEmbedding, Isomap
 import sys
 
 def loadFiles(root):
@@ -15,25 +16,28 @@ def loadFiles(root):
     labels = []
     classes = []
     face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
+    minSize = 100000000000000
     for dirs in os.walk(root):
         for dir in dirs[1]:
-            newDir = root + "/" + dir            
+            newDir = root + "\\" + dir            
             for subDirs in os.walk(newDir):
                 for subDir in subDirs[1]:
-                    newSubDir = newDir + "/" + subDir
+                    newSubDir = newDir + "\\" + subDir
                     for subSubDirs in os.walk(newSubDir):
                         files = len(subSubDirs[2])
                         #Only load the peak frame!
                         file = subSubDirs[2][files - 2]
-                        filename =  newSubDir + "/" + file
+                        filename =  newSubDir + "\\" + file
                         rawImg = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
                         # Crop the image to the face only
                         faces = face_cascade.detectMultiScale(rawImg)
                         [x,y,w,h] = faces[0]
                         img = rawImg[y:y+h, x:x+w]
                         images.append(img)
+                        if w*h < minSize:
+                            minSize = w*h
                         # Load the Action Units
-                        textFile = newSubDir + "/" + subSubDirs[2][files - 1]
+                        textFile = newSubDir + "\\" + subSubDirs[2][files - 1]
                         aus = []
                         with open(textFile, 'rt') as file:
                             data = csv.reader(file)
@@ -45,7 +49,7 @@ def loadFiles(root):
                                 if au not in classes:
                                     classes.append(au)
                         labels.append(np.array(aus))
-    return np.array(images), np.array(labels), classes
+    return np.array(images), np.array(labels), classes, minSize
 
 def buildFilters(sigma, gamma):
     filters = []
@@ -89,17 +93,20 @@ def eval(classes, clf, x, y):
 
 if __name__ == "__main__":
     # The root directory where the CK+ database is located
-    images, labels, classes = loadFiles("test")
+    #images, labels, classes = loadFiles("test")
+    images, labels, classes, minSize = loadFiles("C:\\CK\\test")
     labels = MultiLabelBinarizer().fit_transform(labels)
     # TBD: Change these two values based on the classifier's performance
-    reducedImages = []
+    reducedImages = []    
+    sys.argv = ["", '-pca']
     if sys.argv[1] == '-gabor':
         reducedImages = gaborReduce(images)
     elif sys.argv[1] == '-pca':
-        for i in images:
-            pca = PCA(n_components=136)
-            print(i)
-            reducedImages.append(pca.fit_transform(i))
+        for i in range(len(images)):
+            images[i] = np.reshape(images[i], (-1))
+            images[i] = images[i][:minSize].astype("float64")            
+        pca = PCA(n_components=136)
+        reducedImages.append(pca.fit_transform(images))
     elif sys.argv[1] == '-isomap':
         isomap = Isomap(n_components=136)
         reducedImages = isomap.fit_transform(images)
