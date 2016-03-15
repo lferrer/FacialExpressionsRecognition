@@ -94,25 +94,37 @@ def eval(classes, clf, x, y):
 if __name__ == "__main__":
     # The root directory where the CK+ database is located
     #images, labels, classes = loadFiles("test")
-    images, labels, classes, minSize = loadFiles("C:\\CK\\test")
+    images, labels, classes, minSize = loadFiles("C:\\CK\\train")
     labels = MultiLabelBinarizer().fit_transform(labels)
     # TBD: Change these two values based on the classifier's performance
     reducedImages = []    
-    sys.argv = ["", '-pca']
+    #sys.argv = ["", '-isomap']
     if sys.argv[1] == '-gabor':
         reducedImages = gaborReduce(images)
     elif sys.argv[1] == '-pca':
+        trimmedImages = []
         for i in range(len(images)):
             images[i] = np.reshape(images[i], (-1))
-            images[i] = images[i][:minSize].astype("float64")            
+            images[i] = images[i][:minSize]
+            trimmedImages.append(images[i])            
         pca = PCA(n_components=136)
-        reducedImages.append(pca.fit_transform(images))
+        reducedImages = pca.fit_transform(trimmedImages)
     elif sys.argv[1] == '-isomap':
+        trimmedImages = []
+        for i in range(len(images)):
+            images[i] = np.reshape(images[i], (-1))
+            images[i] = images[i][:minSize]
+            trimmedImages.append(images[i])
         isomap = Isomap(n_components=136)
-        reducedImages = isomap.fit_transform(images)
+        reducedImages = isomap.fit_transform(trimmedImages)
     elif sys.argv[1] == '-lle':
+        trimmedImages = []
+        for i in range(len(images)):
+            images[i] = np.reshape(images[i], (-1))
+            images[i] = images[i][:minSize]
+            trimmedImages.append(images[i])
         lle = LocallyLinearEmbedding(n_components=136)
-        reducedImages = lle.fit_transform(images)
+        reducedImages = lle.fit_transform(trimmedImages)
     
     # Do cross-fold validation 
     kf = KFold(len(images), n_folds=2)
