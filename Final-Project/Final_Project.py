@@ -1,12 +1,14 @@
-import cv2
 import csv
 import numpy as np
+import cv2
 import os
 from sklearn.svm import LinearSVC
 from sklearn.metrics import roc_auc_score
 from sklearn.cross_validation import KFold
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.multiclass import OneVsRestClassifier
+from sklearn.decomposition import PCA
+import sys
 
 def loadFiles(root):
     images = []
@@ -15,15 +17,15 @@ def loadFiles(root):
     face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
     for dirs in os.walk(root):
         for dir in dirs[1]:
-            newDir = root + "\\" + dir            
+            newDir = root + "/" + dir            
             for subDirs in os.walk(newDir):
                 for subDir in subDirs[1]:
-                    newSubDir = newDir + "\\" + subDir
+                    newSubDir = newDir + "/" + subDir
                     for subSubDirs in os.walk(newSubDir):
                         files = len(subSubDirs[2])
                         #Only load the peak frame!
                         file = subSubDirs[2][files - 2]
-                        filename =  newSubDir + "\\" + file
+                        filename =  newSubDir + "/" + file
                         rawImg = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
                         # Crop the image to the face only
                         faces = face_cascade.detectMultiScale(rawImg)
@@ -31,7 +33,7 @@ def loadFiles(root):
                         img = rawImg[y:y+h, x:x+w]
                         images.append(img)
                         # Load the Action Units
-                        textFile = newSubDir + "\\" + subSubDirs[2][files - 1]
+                        textFile = newSubDir + "/" + subSubDirs[2][files - 1]
                         aus = []
                         with open(textFile, 'rt') as file:
                             data = csv.reader(file)
@@ -56,7 +58,10 @@ def buildFilters(sigma, gamma):
                 filters.append(kern)
     return filters
 
-def gaborReduce(images, filters):
+def gaborReduce(images):
+    sigma = 4.0
+    gamma = 0.5
+    filters = buildFilters(sigma, gamma)
     newImages = []
     for img in images:
         reducedImage = [0] * 136
@@ -67,6 +72,7 @@ def gaborReduce(images, filters):
             reducedImage[i] = np.sum(tImg)
         newImages.append(np.array(reducedImage))
     return np.array(newImages)
+
 
 def eval(classes, clf, x, y):
     n = len(x)
@@ -80,15 +86,27 @@ def eval(classes, clf, x, y):
             roc_auc[i] = -1
     return roc_auc
 
+
 if __name__ == "__main__":
     # The root directory where the CK+ database is located
-    images, labels, classes = loadFiles("C:\\CK\\test")
+    images, labels, classes = loadFiles("test")
     labels = MultiLabelBinarizer().fit_transform(labels)
     # TBD: Change these two values based on the classifier's performance
-    sigma = 4.0
-    gamma = 0.5
-    filters = buildFilters(sigma, gamma)
-    reducedImages = gaborReduce(images, filters)
+    reducedImages = []
+    if sys.argv[1] == '-gabor':
+        reducedImages = gaborReduce(images)
+    elif sys.argv[1] == '-pca':
+        for i in images:
+            pca = PCA(n_components=136)
+            print(i)
+            reducedImages.append(pca.fit_transform(i))
+    elif sys.argv[1] == '-isomap':
+        isomap = Isomap(n_components=136)
+        reducedImages = isomap.fit_transform(images)
+    elif sys.argv[1] == '-lle':
+        lle = LocallyLinearEmbedding(n_components=136)
+        reducedImages = lle.fit_transform(images)
+    
     # Do cross-fold validation 
     kf = KFold(len(images), n_folds=2)
     minAreas = {}
