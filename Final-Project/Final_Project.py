@@ -98,7 +98,7 @@ if __name__ == "__main__":
     labels = MultiLabelBinarizer().fit_transform(labels)
     # TBD: Change these two values based on the classifier's performance
     reducedImages = []    
-    #sys.argv = ["", '-isomap']
+    #sys.argv = ["", '-gabor']
     if sys.argv[1] == '-gabor':
         reducedImages = gaborReduce(images)
     elif sys.argv[1] == '-pca':
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         for i in range(len(images)):
             images[i] = np.reshape(images[i], (-1))
             images[i] = images[i][:minSize]
-            trimmedImages.append(images[i])            
+            trimmedImages.append(images[i])
         pca = PCA(n_components=136)
         reducedImages = pca.fit_transform(trimmedImages)
     elif sys.argv[1] == '-isomap':
